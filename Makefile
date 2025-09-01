@@ -1,3 +1,9 @@
+.DEFAULT_GOAL := _setup
+
+
+.PHONY: _setup
+_setup:
+	@node .github/setup.js
 # GitStuff Makefile
 # 
 # Quick start:
