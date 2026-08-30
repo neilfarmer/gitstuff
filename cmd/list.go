@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"fmt"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -10,6 +9,7 @@ import (
 	"gitstuff/internal/git"
 	"gitstuff/internal/github"
 	"gitstuff/internal/gitlab"
+	"gitstuff/internal/paths"
 	"gitstuff/internal/scm"
 	"gitstuff/internal/verbosity"
 
@@ -123,7 +123,7 @@ func displayRepositoryList(clients []scm.Client, cfg *config.Config, showStatus 
 		}
 
 		if showStatus {
-			localPath := filepath.Join(cfg.Local.BaseDir, repo.Provider, repo.FullPath)
+			localPath := paths.ResolveRepositoryPath(cfg, repo)
 			status, err := git.GetRepositoryStatus(localPath)
 			if err != nil {
 				fmt.Printf("   Status: ❌ Error checking status: %v\n", err)
@@ -160,7 +160,7 @@ func displayRepositoryTree(clients []scm.Client, cfg *config.Config, showStatus 
 					repoLine := fmt.Sprintf("📁 %s", repo.Name)
 
 					if showStatus {
-						localPath := filepath.Join(cfg.Local.BaseDir, repo.Provider, repo.FullPath)
+						localPath := paths.ResolveRepositoryPath(cfg, repo)
 						status, err := git.GetRepositoryStatus(localPath)
 						if err != nil {
 							repoLine += fmt.Sprintf(" - ❌ Error: %v", err)
@@ -223,7 +223,7 @@ func displayGroup(group *scm.GroupNode, indent int, cfg *config.Config, showStat
 		repoLine := fmt.Sprintf("%s  📁 %s", prefix, repo.Name)
 
 		if showStatus {
-			localPath := filepath.Join(cfg.Local.BaseDir, repo.Provider, repo.FullPath)
+			localPath := paths.ResolveRepositoryPath(cfg, repo)
 			status, err := git.GetRepositoryStatus(localPath)
 			if err != nil {
 				repoLine += fmt.Sprintf(" - ❌ Error: %v", err)

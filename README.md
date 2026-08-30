@@ -235,23 +235,27 @@ gitstuff clone --all --update
 
 ## Repository Structure
 
-The CLI maintains the exact provider group/organization structure on your filesystem:
+The CLI maintains the exact provider group/organization structure on your filesystem with provider separation:
 
 ```text
 ~/gitstuff-repos/
-├── gitlab-group1/
-│   ├── project1/
-│   ├── project2/
-│   └── subgroup1/
-│       └── nested-project/
-├── gitlab-group2/
-│   └── another-project/
-├── github-org/
-│   ├── public-repo/
-│   └── private-repo/
-└── github-user/
-    └── personal-project/
+├── gitlab/                    # GitLab provider
+│   ├── gitlab-group1/
+│   │   ├── project1/
+│   │   ├── project2/
+│   │   └── subgroup1/
+│   │       └── nested-project/
+│   └── gitlab-group2/
+│       └── another-project/
+└── github/                    # GitHub provider
+    ├── github-org/
+    │   ├── public-repo/
+    │   └── private-repo/
+    └── github-user/
+        └── personal-project/
 ```
+
+**Legacy Structure Support**: If you have repositories already cloned without the provider subdirectories (e.g., directly in `~/gitstuff-repos/group/project`), GitStuff will automatically detect and work with them. New clones will use the provider-based structure shown above.
 
 ## Repository Status Information
 

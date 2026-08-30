@@ -2,12 +2,12 @@ package cmd
 
 import (
 	"fmt"
-	"path/filepath"
 	"strings"
 	"time"
 
 	"gitstuff/internal/config"
 	"gitstuff/internal/git"
+	"gitstuff/internal/paths"
 	"gitstuff/internal/scm"
 	"gitstuff/internal/verbosity"
 
@@ -133,9 +133,10 @@ func cloneAllRepositories(clients []scm.Client, cfg *config.Config, useSSH, upda
 		repoStart := time.Now()
 		fmt.Printf("[%d/%d] Processing %s [%s]...\n", i+1, len(allRepos), repo.FullPath, repo.Provider)
 
-		localPath := filepath.Join(cfg.Local.BaseDir, repo.Provider, repo.FullPath)
-		verbosity.Debug("Checking repository status at: %s", localPath)
-		status, err := git.GetRepositoryStatus(localPath)
+		// Check if repo exists in either location (new or legacy structure)
+		checkPath := paths.ResolveRepositoryPath(cfg, repo)
+		verbosity.Debug("Checking repository status at: %s", checkPath)
+		status, err := git.GetRepositoryStatus(checkPath)
 		if err != nil {
 			fmt.Printf("❌ Error checking status: %v\n\n", err)
 			failed++
@@ -147,7 +148,7 @@ func cloneAllRepositories(clients []scm.Client, cfg *config.Config, useSSH, upda
 				verbosity.Debug("Repository exists, pulling latest changes")
 				fmt.Printf("🔄 Pulling latest changes...\n")
 				pullStart := time.Now()
-				if err := git.PullRepository(localPath); err != nil {
+				if err := git.PullRepository(checkPath); err != nil {
 					fmt.Printf("❌ Failed to pull: %v\n\n", err)
 					failed++
 				} else {
@@ -172,7 +173,7 @@ func cloneAllRepositories(clients []scm.Client, cfg *config.Config, useSSH, upda
 		verbosity.Debug("Cloning repository using %s protocol: %s", map[bool]string{true: "SSH", false: "HTTPS"}[useSSH], cloneURL)
 		fmt.Printf("📥 Cloning from %s...\n", cloneURL)
 		cloneStart := time.Now()
-		if err := git.CloneRepository(cloneURL, localPath, useSSH); err != nil {
+		if err := git.CloneRepository(cloneURL, paths.GetClonePath(cfg, repo), useSSH); err != nil {
 			fmt.Printf("❌ Failed to clone: %v\n\n", err)
 			failed++
 		} else {
@@ -215,9 +216,9 @@ func cloneGroupRepositories(clients []scm.Client, cfg *config.Config, groupPath 
 		repoStart := time.Now()
 		fmt.Printf("[%d/%d] Processing %s [%s]...\n", i+1, len(allRepos), repo.FullPath, repo.Provider)
 
-		localPath := filepath.Join(cfg.Local.BaseDir, repo.Provider, repo.FullPath)
-		verbosity.Debug("Checking repository status at: %s", localPath)
-		status, err := git.GetRepositoryStatus(localPath)
+		checkPath := paths.ResolveRepositoryPath(cfg, repo)
+		verbosity.Debug("Checking repository status at: %s", checkPath)
+		status, err := git.GetRepositoryStatus(checkPath)
 		if err != nil {
 			fmt.Printf("❌ Error checking status: %v\n\n", err)
 			failed++
@@ -229,7 +230,7 @@ func cloneGroupRepositories(clients []scm.Client, cfg *config.Config, groupPath 
 				verbosity.Debug("Repository exists, pulling latest changes")
 				fmt.Printf("🔄 Pulling latest changes...\n")
 				pullStart := time.Now()
-				if err := git.PullRepository(localPath); err != nil {
+				if err := git.PullRepository(checkPath); err != nil {
 					fmt.Printf("❌ Failed to pull: %v\n\n", err)
 					failed++
 				} else {
@@ -254,7 +255,7 @@ func cloneGroupRepositories(clients []scm.Client, cfg *config.Config, groupPath 
 		verbosity.Debug("Cloning repository using %s protocol: %s", map[bool]string{true: "SSH", false: "HTTPS"}[useSSH], cloneURL)
 		fmt.Printf("📥 Cloning from %s...\n", cloneURL)
 		cloneStart := time.Now()
-		if err := git.CloneRepository(cloneURL, localPath, useSSH); err != nil {
+		if err := git.CloneRepository(cloneURL, paths.GetClonePath(cfg, repo), useSSH); err != nil {
 			fmt.Printf("❌ Failed to clone: %v\n\n", err)
 			failed++
 		} else {
@@ -288,8 +289,8 @@ func cloneSingleRepository(clients []scm.Client, cfg *config.Config, repoPath st
 
 	fmt.Printf("Found repository: %s [%s]\n", foundRepo.FullPath, foundRepo.Provider)
 
-	localPath := filepath.Join(cfg.Local.BaseDir, foundRepo.Provider, foundRepo.FullPath)
-	status, err := git.GetRepositoryStatus(localPath)
+	checkPath := paths.ResolveRepositoryPath(cfg, foundRepo)
+	status, err := git.GetRepositoryStatus(checkPath)
 	if err != nil {
 		return fmt.Errorf("error checking repository status: %w", err)
 	}
@@ -297,19 +298,19 @@ func cloneSingleRepository(clients []scm.Client, cfg *config.Config, repoPath st
 	if status.Exists && status.IsGitRepo {
 		if update {
 			fmt.Printf("🔄 Pulling latest changes...\n")
-			if err := git.PullRepository(localPath); err != nil {
+			if err := git.PullRepository(checkPath); err != nil {
 				return fmt.Errorf("failed to pull repository: %w", err)
 			}
 			fmt.Printf("✅ Repository updated successfully\n")
 		} else {
-			fmt.Printf("⏭️  Repository already cloned at: %s\n", localPath)
+			fmt.Printf("⏭️  Repository already cloned at: %s\n", checkPath)
 			fmt.Printf("   Use --update flag to pull latest changes\n")
 		}
 		return nil
 	}
 
 	if status.Exists && !status.IsGitRepo {
-		return fmt.Errorf("directory %s exists but is not a git repository", localPath)
+		return fmt.Errorf("directory %s exists but is not a git repository", checkPath)
 	}
 
 	cloneURL := foundRepo.CloneURL
@@ -317,8 +318,9 @@ func cloneSingleRepository(clients []scm.Client, cfg *config.Config, repoPath st
 		cloneURL = foundRepo.SSHCloneURL
 	}
 
-	fmt.Printf("📥 Cloning from %s to %s...\n", cloneURL, localPath)
-	if err := git.CloneRepository(cloneURL, localPath, useSSH); err != nil {
+	clonePath := paths.GetClonePath(cfg, foundRepo)
+	fmt.Printf("📥 Cloning from %s to %s...\n", cloneURL, clonePath)
+	if err := git.CloneRepository(cloneURL, clonePath, useSSH); err != nil {
 		return fmt.Errorf("failed to clone repository: %w", err)
 	}
 
